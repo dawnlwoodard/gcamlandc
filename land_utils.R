@@ -15,12 +15,12 @@ getLitter <- function(prevC, currLand, land0){
 getNPP <- function(idx, NPP0, startYear, currCO2, co20, currLand, Land0, betaEff){
 
   if (betaEff){
-    beta <- 0.15
+    beta <- 0.15  # TODO make this an input
   } else {
-    beta <- 0
+    beta <- 0  # turns off CO2 fertilization effect
   }
 
-  if (Land0 == 0) NPP <- 0
+  if (Land0 == 0) NPP <- 0  # no NPP if we don't have any land allocation. This also guarantees we don't divide by zero in the next line
   else {
     NPP <- NPP0*(1 + beta*log(currCO2/co20))*(currLand/Land0)
   }
@@ -44,6 +44,7 @@ getTairMean <- function(lag, year, climate_data){
 # currently passing in belowC0 to test
 getRh <- function(idx, prevBelowC, climate_data, rhEff, currLand, land0){
 
+  # TODO make these parameters inputs
   f_rhs <- 0.02
   q10 <- 2.0
   if (rhEff){
@@ -52,7 +53,7 @@ getRh <- function(idx, prevBelowC, climate_data, rhEff, currLand, land0){
     T_rm <- 0
   }
   if (land0 == 0){
-    currRh <- 0
+    currRh <- 0  # no Rh if we don't have any land allocation. This also guarantees we don't divide by zero in the next line
   } else currRh <- f_rhs*prevBelowC*q10^(T_rm/10.0)*(currLand/land0)
 
   return(currRh)
@@ -88,7 +89,7 @@ calc_above_ground_luc_emissions <- function(prevC, prevLand, currLand, prevCDens
 
   idx <- year - startYear
 
-  cDiff <- prevCDensity*prevLand-currCDensity*currLand
+  cDiff <- prevCDensity*prevLand-currCDensity*currLand  # this is an update from previous GCAM. Was density*(prevLand-currLand)
 
   if (is_equal(cDiff,0.0)){
   } else if (cDiff < 0 && matureAge > 1 ) {
@@ -139,12 +140,10 @@ calc_annual_leaf_luc <- function(climate_data, agEmissions, bgEmissions, prev_da
   currCO2 <- climate_data$co2[yr_idx]
 
   if (currLand == 0){
-    #print("land==0")
     currNPP <- 0
     currRh <- 0
     currLitter <- 0
   } else if (prev_data$land_alloc == 0 & currLand != 0 ) { # previously this was prev_data$NPP == 0
-    #print("prev land == 0")
     currNPP <- params$npp_factor*currLand  # no need to call getNPP since we know exactly what this will be
     params$NPP0 <- params$npp_factor*currLand
     params$agCarbon0 <- prev_data$agCDensity*currLand
@@ -155,31 +154,16 @@ calc_annual_leaf_luc <- function(climate_data, agEmissions, bgEmissions, prev_da
     currRh <- currNPP # these should start in equilibrium
 
   } else {
-    #print("else")
     currNPP <- getNPP(currYear, params$NPP0, startYear, currCO2, params$co20, currLand, params$land0, betaEff)
     currLitter <- getLitter(params$agCarbon0, currLand, params$land0)
     currRh <- getRh(yr_idx, params$bgCarbon0, climate_data, rhEff, currLand, params$land0)
-    #currNPP <- getNPP(currYear, params$NPP0, startYear, currCO2, params$co20, prev_data$land_alloc, params$land0, betaEff)
-    #currLitter <- getLitter(params$agCarbon0, prev_data$land_alloc, params$land0)
-    #currRh <- getRh(yr_idx, params$bgCarbon0, climate_data, rhEff, prev_data$land_alloc, params$land0)
 
   }
 
   if (ccycling){
-    #print(c(currYear,currNPP,currLitter))
-    #print(c(params$bgCarbon0, params$agCarbon0, params$land0,currLand))
-    #print(c(climate_data[yr_idx,]$tairMean,
-    #        0.02*params$bgCarbon0,
-    #        2.0^(climate_data[yr_idx,]$tairMean/10.0),
-    #        0.02*params$bgCarbon0*2.0^(climate_data[yr_idx,]$tairMean/10.0),
-    #        currRh))
-
-    #currRh <- f_rhs*prevBelowC*q10^(T_rm/10.0)*(currLand/land0)
-
     currAGDensity <- getCDensityAbove(yr_idx, currNPP, currLitter, prev_data$agCDensity, prev_data$land_alloc, prev_data$agCarbon, params$agCarbon0,lucAG_sum)
     currBGDensity <- getCDensityBelow(yr_idx, currNPP, currRh, currLitter, prev_data$bgCDensity, prev_data$land_alloc, prev_data$agCarbon, params$agCarbon0,lucBG_sum)
-    #print(c(f_bgnpp*NPP,litter,Rh,(f_bgnpp*NPP + litter - Rh)/landArea))
-    #print(c(currYear,currBGDensity,prev_data$bgCDensity,currBGDensity-prev_data$bgCDensity))
+
   } else {
     currAGDensity <- prev_data$agCDensity
     currBGDensity <- prev_data$bgCDensity
@@ -226,7 +210,6 @@ initialize_data <- function(land_alloc, params, year0, leaf_data, climate_data, 
   land_alloc0 <- land_alloc[year=={{year0}},]
 
   for (leaf_region in regions){
-    print("INITIALIZING REGION")
     print(leaf_region)
     reg_land_alloc <- land_alloc0[region=={{leaf_region}},]
     reg_params <- params[region=={{leaf_region}},]
@@ -234,7 +217,6 @@ initialize_data <- function(land_alloc, params, year0, leaf_data, climate_data, 
     leaf_count <- leaf_count + length(leaves)
     for (i in 1:length(leaves)){
       leaf <- leaves[[i]]
-      print(leaf)
       leaf_names <- c(leaf_names,paste0(leaf_region,"_",leaf))
       leaf_land_alloc <- reg_land_alloc[landleaf=={{leaf}},]$value
       leaf_params <- reg_params[landleaf=={{leaf}},]
@@ -250,10 +232,6 @@ initialize_data <- function(land_alloc, params, year0, leaf_data, climate_data, 
       params[leaf_idx,"bgCarbon0"] <- leaf_bgCarbon
       params[leaf_idx,"NPP0"] <- npp_factor*leaf_land_alloc
       params[leaf_idx,"land0"] <- leaf_land_alloc
-      #params[leaf_idx,]$npp_factor <- npp_factor
-      #params[leaf_idx,]$agCarbon0 <- leaf_agCarbon
-      #params[leaf_idx,]$bgCarbon0 <- leaf_bgCarbon
-      #params[leaf_idx,]$NPP0 <- npp_factor*leaf_land_alloc
 
       leaf_npp <- npp_factor*leaf_land_alloc
       leaf_rh <- getRh(1, leaf_bgCarbon, climate_data,
@@ -298,11 +276,9 @@ run_all_years <- function(land_alloc, params, ini_file, last_year=2100, stop_yea
                                       agCarbon=double(len), bgCarbon=double(len),
                                       NPP=double(len), Rh=double(len), litter=double(len))
 
-  print("LENGTH OF LEAF DATA")
-  print(c(len,nrow(leaf_data)))
-
   outer_yr_idx <- 1
 
+  # set up climate output
   climate_data <- data.table::data.table(matrix(ncol=4,nrow=stop_year-year0+1))  # only need to store climate data through run years
   colnames(climate_data) <- c("year","tas","co2","tairMean")
   climate_data[,(1:4) := lapply(.SD, as.numeric), .SDcols = c("year","tas","co2","tairMean")]
@@ -315,15 +291,13 @@ run_all_years <- function(land_alloc, params, ini_file, last_year=2100, stop_yea
   currCO2 <- dplyr::filter(out, variable == hector::CONCENTRATIONS_CO2())$value
   climate_data[1,(1:4) := list(year0,currTair,currCO2,currTair)]
 
+  # probably don't need anymore. was part of an effort to do pre-determined indices
   data.table::setindex(land_alloc, NULL)
   data.table::setindex(leaf_data, NULL)
   data.table::setindex(climate_data, NULL)
   data.table::setindex(params, NULL)
 
-  #init_output <- initialize_data(land_alloc, params, year0, leaf_data, climate_data, rhEff=rhEff,write=TRUE)
-  init_output <- readRDS("data/initialized_data.RDS")
-  print("LENGTH OF LEAF DATA AFTER INIT")
-  print(c(len,nrow(leaf_data)))
+  init_output <- initialize_data(land_alloc, params, year0, leaf_data, climate_data, rhEff=rhEff,write=TRUE)
 
   params <- init_output[["params"]]
   leaf_data <- init_output[["leaf_data"]]

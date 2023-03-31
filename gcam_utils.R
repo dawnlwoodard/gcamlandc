@@ -52,7 +52,7 @@ process_xml_inputs <- function(land_roots, gcam_land_alloc, nleaves=0, nrows=0){
 
     # TODO for efficiency: run leaves in batches of 250 at a time, then add 250 on to main database and redefine data
     for (leaf in all_leaves){
-      new_leaf_data <- process_leaf(leaf,gcam_land_alloc)
+      new_leaf_data <- process_leaf(leaf,gcam_land_alloc)  # TODO filter this by leaf earlier so I don't pass whole thing
       count <- count+1
       idx <- count+nrows-1
       data <- dplyr::bind_rows(data,new_leaf_data)  # TODO update to rbindlist
@@ -101,18 +101,19 @@ parse_c_densities <- function(leaf_data, years){
   } else {
     return(data.frame(year=years,above_ground=above_grnd, below_ground=below_grnd))
   }
-
 }
 
-
 get_leaf_land_alloc <- function(leaf_node, leaf_name, leaf_region, gcam_land_alloc){
-  leaf_data <- xml2::as_list(leaf_node)
-  land_alloc_df <- parse_land_alloc(leaf_data)
+  leaf_data <- xml2::as_list(leaf_node)  # convert leaf data from xml into something parseable in R
+  
+  land_alloc_df <- parse_land_alloc(leaf_data)  # get the historical land allocation data from the xmls
+  
   gcam_leaf_land_alloc <- get_gcam_land_alloc_by_leaf(leaf_region=leaf_region, leaf_name=leaf_name, gcam_alloc=gcam_land_alloc)
+  
   # find all years of overlap between modeled and historical land alloc and remove from historical
   first_model_year <- gcam_leaf_land_alloc$year[1]
   idx <- match(first_model_year, land_alloc_df$year)
-  land_alloc_df <- land_alloc_df[1:idx-1,]
+  land_alloc_df <- land_alloc_df[1:idx-1,]  # remove any land allocation from the historical that's covered by gcam database output
 
   land_alloc_all_years <- rbind(land_alloc_df,gcam_leaf_land_alloc)
   rownames(land_alloc_all_years) <- 1:length(land_alloc_all_years$year)
