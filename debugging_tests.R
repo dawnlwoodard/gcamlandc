@@ -97,3 +97,87 @@ unmanaged_leaves <- xml2::xml_find_all(land_roots[[i]], "//UnmanagedLandLeaf")
 all_leaves <- c(all_leaves, unmanaged_leaves)
 leaf_count <- 0
 
+
+
+# test climate output
+
+
+library(hector)
+library(dplyr)
+
+rcp <- "ssp245"
+scenario_file <- paste0("input/hector_",rcp,".ini")
+ini_file <- system.file(scenario_file, package="hector")
+
+core <- hector::newcore(ini_file, suppresslogging = FALSE)
+hector::run(core,runtodate = 2100)
+out <- hector::fetchvars(core,dates=1746:2100,vars=c(hector::GLOBAL_TAS(),hector::CONCENTRATIONS_CO2(),hector::NBP()))
+out$scenario <- "baseline"
+out <- filter(out,year <= 2050)
+
+hector_base_data <- filter(out,year<=2050) %>%
+  select(-c("units","scenario")) %>%
+  tidyr::pivot_wider(names_from="variable",values_from = "value")
+head(hector_base_data)
+
+
+
+full_climate_data <- read.csv("~/Dropbox/Research/gcam_projects/task3.1a/landtest/data/climate_data_full_world_baseline_no-protected_2100.csv")
+head(full_climate_data)
+clim_data <- filter(full_climate_data,year<=2050) %>%
+  select(-c("units","scenario","X")) %>%
+  tidyr::pivot_wider(names_from="variable",values_from = "value")
+head(clim_data)
+
+
+core <- hector::newcore(ini_file, suppresslogging = FALSE)
+setvar(core,1745:2050,"NBP_constrain",-1*clim_data$NBP_constrain,"Pg C/yr")
+hector::run(core,runtodate = 2050)
+out_full <- hector::fetchvars(core,dates=1746:2050,vars=c(hector::GLOBAL_TAS(),hector::CONCENTRATIONS_CO2(),hector::NBP_CONSTRAIN()))
+out_full$scenario <- "negative-sign"
+
+core <- hector::newcore(ini_file, suppresslogging = FALSE)
+setvar(core,1745:2050,"NBP_constrain",clim_data$NBP_constrain,"Pg C/yr")
+hector::run(core,runtodate = 2050)
+out_same <- hector::fetchvars(core,dates=1746:2050,vars=c(hector::GLOBAL_TAS(),hector::CONCENTRATIONS_CO2(),hector::NBP_CONSTRAIN()))
+out_same$scenario <- "same-sign"
+
+
+core <- hector::newcore(ini_file, suppresslogging = FALSE)
+#setvar(core,1745:2050,"NBP_constrain",clim_data$NBP_constrain,"Pg C/yr")
+setvar(core,1746:2050,"NBP_constrain",hector_base_data$NBP,"Pg C/yr")
+hector::run(core,runtodate = 2050)
+out_test <- hector::fetchvars(core,dates=1746:2050,vars=c(hector::GLOBAL_TAS(),hector::CONCENTRATIONS_CO2(),hector::NBP_CONSTRAIN()))
+out_test$scenario <- "hector_base_rerun"
+
+out_all <- dplyr::bind_rows(out,out_test,out_same,out_full)
+#out_all <- dplyr::bind_rows(out_all,out_test)
+
+#library(ggplot2)
+ggplot(data=filter(out_all,year<=2050),aes(x=year,y=value,linetype=scenario))+
+  geom_line()+
+  facet_wrap(~variable,scales="free_y")+
+  theme_classic() -> fig
+
+ggsave(filename=paste0("climate_comp_all.png"),plot=fig,width=15,height=6)
+
+
+library(ggplot2)
+library(dplyr)
+ggplot(data=filter(out,year<=2050,variable==NBP()),aes(x=year,y=value))+
+  geom_line()+
+  facet_wrap(~variable,scales="free_y")+
+  theme_classic() -> fig
+
+ggsave(filename=paste0("hector_data.png"),plot=fig,width=10,height=6)
+
+fig
+
+currTair <- dplyr::filter(out, variable == hector::GLOBAL_TAS())$value
+currCO2 <- dplyr::filter(out, variable == hector::CONCENTRATIONS_CO2())$value
+climate_data[1,(1:4) := list(year0,currTair,currCO2,currTair)]
+
+
+setwd("~/Dropbox/Github/hector")
+
+
