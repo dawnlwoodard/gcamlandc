@@ -1,0 +1,16 @@
+﻿region,landleaf,variable,value
+world,leaf1,cDensityAbove,2
+world,leaf1,cDensityBelow,10
+world,leaf1,mature_age,50
+world,leaf1,soilTimeScale,50
+world,leaf1,npp_factor,0.2
+world,leaf2,cDensityAbove,2
+world,leaf2,cDensityBelow,10
+world,leaf2,mature_age,50
+world,leaf2,soilTimeScale,50
+world,leaf2,npp_factor,0.2
+world,leafCrop,cDensityAbove,1.42
+world,leafCrop,cDensityBelow,7.1
+world,leafCrop,mature_age,1
+world,leafCrop,soilTimeScale,50
+world,leafCrop,npp_factor,0.142
